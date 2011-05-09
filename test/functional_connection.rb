@@ -4,9 +4,9 @@
 # Thu Apr  1 21:35:07 JST 2010
 #
 
-require 'yajl' rescue require 'json'
+require 'yajl' #rescue require 'json'
 require 'rufus-json'
-Rufus::Json.detect_backend
+Rufus::Json.backend = :yajl
 require 'active_support'
 require 'ruote-ar'
 
@@ -22,10 +22,10 @@ end
 def new_storage (opts)
   # Database credentials
   ::Ruote::ActiveRecord::Storage.new(
-    :adapter => 'mysql',
+    {:adapter => 'mysql',
     :database => 'itsm_test',
     :username => 'root',
-    :host => 'localhost'
+    :host => 'localhost'}, opts
   )  
 end
 

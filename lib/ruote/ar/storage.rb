@@ -1,8 +1,3 @@
-require 'ruote/storage/base'
-require 'rubygems'
-require 'active_record' unless defined?(ActiveRecord)
-require 'meta_where' unless defined?(MetaWhere)
-
 module Ruote
   module ActiveRecord
     
@@ -27,7 +22,8 @@ module Ruote
       def initialize(config, options = {})
         @config = config
         @options = options
-        ::ActiveRecord::Base.establish_connection @config
+        ::ActiveRecord::Base.establish_connection @config                    
+        put(options.merge('type' => 'configurations', '_id' => 'engine'))
       end
       
       
@@ -71,8 +67,10 @@ module Ruote
           do_insert(doc, nrev)
 
         rescue Exception => de
-
-          return (get(doc['type'], doc['_id']) || true)
+          puts "Falhou ---> #{de.inspect}"
+          puts "  DOC -> #{doc.inspect}"
+          puts "  nrev --> #{nrev.inspect}"
+          #return (self.get(doc['type'], doc['_id']) || true)
           # failure
         end
 
@@ -90,7 +88,7 @@ module Ruote
 
       def get(type, key)
 
-        d = do_get(type, key)
+        d = self.do_get(type, key)
 
         d ? Rufus::Json.decode(d[:doc]) : nil
       end
@@ -203,7 +201,7 @@ module Ruote
 
       # Querying workitems by field (warning, goes deep into the JSON structure)
       #
-      def by_field(type, field, value, opts)
+      def by_field(type, field, value, opts={})
 
         raise NotImplementedError if type != 'workitems'
 
