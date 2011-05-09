@@ -9,7 +9,8 @@ Para rodar os testes você deve:
     ruby ../ruote/test/test.rb -- --ar 
   </li>
 <ol>   
+<br/>
   
 Rode apenas os testes funcionais  com o comando:
 ====================================================
-    ruby ../ruote/test/functional/only_features.rb -- --split --ar -d
+  ruby ../ruote/test/functional/test.rb -- --split --ar -d
