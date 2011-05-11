@@ -1,10 +1,16 @@
+require 'active_support/core_ext/module/aliasing.rb'
+require 'active_record' unless defined?(ActiveRecord)
+require 'mysql2'
+require 'meta_where' unless defined?(MetaWhere)
+require 'ruote/storage/base'
+require 'ruote/ar/ruote_patch'
+
 module Ruote
   module ActiveRecord
     
     class Document < ::ActiveRecord::Base
       set_table_name :documents
-      
-      
+            
       def self.before_fork
         ::ActiveRecord::Base.clear_all_connections!
       end
@@ -12,34 +18,42 @@ module Ruote
       def self.after_fork
         ::ActiveRecord::Base.establish_connection
       end
+      
+      def to_h
+        Rufus::Json.decode(doc)
+      end
+
+      def to_wi
+        Ruote::Workitem.from_json(doc)
+      end
+
+      def <=>(other)
+        self.ide <=> other.ide
+      end            
     end
-    
-    
-    
+     
+     #
+     # A active-record  powered storage for ruote.
+     #
     class Storage
       include Ruote::StorageBase
 
       def initialize(config, options = {})
         @config = config
         @options = options
-        ::ActiveRecord::Base.establish_connection @config                    
-        put(options.merge('type' => 'configurations', '_id' => 'engine'))
-      end
-      
+        ::ActiveRecord::Base.establish_connection @config
+        put_configuration
+      end      
       
       def put_msg(action, options)
-
         # put_msg is a unique action, no need for all the complexity of put
-
         do_insert(prepare_msg_doc(action, options), 1)
 
         nil
       end
 
       def put_schedule(flavour, owner_fei, s, msg)
-
         # put_schedule is a unique action, no need for all the complexity of put
-
         doc = prepare_schedule_doc(flavour, owner_fei, s, msg)
 
         return nil unless doc
@@ -63,23 +77,17 @@ module Ruote
         nrev = doc['_rev'].to_i + 1
 
         begin
-
           do_insert(doc, nrev)
-
         rescue Exception => de
-          puts "Falhou ---> #{de.inspect}"
-          puts "  DOC -> #{doc.inspect}"
-          puts "  nrev --> #{nrev.inspect}"
-          #return (self.get(doc['type'], doc['_id']) || true)
+          # puts "Falhou ---> #{de.inspect}"                    
+          # puts "  DOC -> #{doc.merge('_rev' => nrev, 'put_at' => Ruote.now_to_utc_s).inspect}"
+          # puts "  nrev --> #{nrev.inspect}"
+          return (self.get(doc['type'], doc['_id']) || true)
           # failure
         end
 
         Document.delete(:typ => doc['type'], :ide => doc['_id'], :rev.lt => nrev)
         
-        # @sequel[@table].where(
-        #                       :typ => doc['type'], :ide => doc['_id']
-        #                       ).filter { rev < nrev }.delete
-
         doc['_rev'] = nrev if opts[:update_rev]
 
         nil
@@ -90,7 +98,7 @@ module Ruote
 
         d = self.do_get(type, key)
 
-        d ? Rufus::Json.decode(d[:doc]) : nil
+        d ? d.to_h : nil
       end
 
       def delete(doc)
@@ -208,7 +216,7 @@ module Ruote
         lk = [ '%"', field, '":' ]
         lk.push(Rufus::Json.encode(value)) if value
         lk.push('%')
-
+        
         docs = Document.where(:typ => type, :doc.matches => lk.join)
         docs = docs.limit(opts[:limit]).offset(opts[:skip] || opts[:offset])
         docs = select_last_revs(docs)
@@ -247,40 +255,30 @@ module Ruote
           ds.collect { |d| Ruote::Workitem.new(Rufus::Json.decode(d[:doc])) }
       end
 
-      
-      
-      
-      
       protected
 
       def do_delete(doc)
-
-        Document.delete(
-                        :ide => doc['_id'], :typ => doc['type'], :rev => doc['_rev'].to_i
-                        )
+        Document.delete(:ide => doc['_id'], :typ => doc['type'], :rev => doc['_rev'].to_i)
       end
 
       def do_insert(doc, rev)
-
         Document.create!(
-                               :ide => doc['_id'],
-                               :rev => rev,
-                               :typ => doc['type'],
-                               :doc => Rufus::Json.encode(doc.merge(
-                                                                    '_rev' => rev,
-                                                                    'put_at' => Ruote.now_to_utc_s)),
-                               :wfid => extract_wfid(doc),
-                               :participant_name => doc['participant_name']
-                               )
+         :ide => doc['_id'],
+         :rev => rev,
+         :typ => doc['type'],
+         :doc => Rufus::Json.encode(doc.merge(
+            '_rev' => rev,
+            'put_at' => Ruote.now_to_utc_s)),
+         :wfid => extract_wfid(doc),
+         :participant_name => doc['participant_name']
+        )
       end
 
       def extract_wfid(doc)
-
         doc['wfid'] || (doc['fei'] ? doc['fei']['wfid'] : nil)
       end
 
       def do_get(type, key)
-
         Document.where(
                        :typ => type, :ide => key
                        ).order(:rev.desc).first
@@ -293,19 +291,17 @@ module Ruote
       def put_configuration
 
         return if get('configurations', 'engine')
-
+        
         conf = { '_id' => 'engine', 'type' => 'configurations' }.merge(@options)
         put(conf)
       end
 
       def select_last_revs(docs, reverse=false)
 
-        docs = docs.inject({}) { |h, doc|
+        docs = docs.inject({}) do |h, doc|
           h[doc[:ide]] = doc
           h
-        }.values.sort_by { |h|
-          h[:ide]
-        }
+        end.values.sort_by{ |h| h[:ide] }
 
         reverse ? docs.reverse : docs
       end
