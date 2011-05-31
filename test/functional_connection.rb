@@ -1,13 +1,3 @@
-#
-# testing ruote-redis
-#
-# Thu Apr  1 21:35:07 JST 2010
-#
-
-require 'yajl' #rescue require 'json'
-require 'rufus-json'
-Rufus::Json.backend = :yajl
-require 'active_support'
 require 'ruote-ar'
 
 class RrLogger
@@ -21,11 +11,12 @@ end
 
 def new_storage (opts)
   # Database credentials
-  ::Ruote::ActiveRecord::Storage.new(
-    {:adapter => 'mysql',
-    :database => 'itsm_test',
-    :username => 'root',
-    :host => 'localhost'}, opts
-  )  
+  ::ActiveRecord::Base.establish_connection({:adapter => 'mysql2',
+                                              :database => 'itsm_test',
+                                              :username => 'root',                      
+                                              :pool => 10, #needed for eft_18
+                                              :host => 'localhost'})
+  
+  ::Ruote::ActiveRecord::Storage.new(opts)  
 end
 

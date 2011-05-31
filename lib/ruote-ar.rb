@@ -1,1 +1,1 @@
-require 'ruote/ar'
+require 'ruote/ar/storage'
