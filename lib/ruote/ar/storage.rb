@@ -144,7 +144,6 @@ module Ruote
               return true unless d
               return d if d['_rev'] != doc['_rev']
               return d if current.nil?
-
                                                                        
               json = Rufus::Json.encode(doc.merge('_rev' => nrev, 'put_at' => Ruote.now_to_utc_s))
               
