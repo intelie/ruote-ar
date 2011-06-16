@@ -157,7 +157,10 @@ module Ruote
               #       doc['_rev']
               #     ])
               
-              json = Document.connection.raw_connection.escape(json)
+              #json = Document.connection.raw_connection.escape(json)
+              #json = json.gsub(/\\/, '\&\&').gsub(/'/, "''")
+              json = Document.connection.quote_string(json)
+              
               
               sql = "update documents set rev=rev+1, wfid='#{extract_wfid(doc)}', doc='#{json}', participant_name='#{doc['participant_name']}' where typ='#{doc['type']}' and ide='#{doc['_id']}' and rev=#{doc['_rev']}"
               st = Document.connection.execute(sql)                                          
