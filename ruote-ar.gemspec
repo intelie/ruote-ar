@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
   s.name              = 'ruote-ar'
-  s.version           = '0.0.1'
-  s.authors           = ["Pedro"]
+  s.version           = '0.0.2'
+  s.authors           = ["Pedro Teixeira"]
   s.summary           = 'ruote storage'
   s.description       = "ruote storage"
   s.email             = ['pedro@intelie.com.br']

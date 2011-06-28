@@ -8,8 +8,8 @@ require 'meta_where' unless defined?(MetaWhere)
 #require 'composite_primary_keys'
 
 require 'rufus/json'
-Rufus::Json.backend = :json
 require 'ruote/storage/base'
+Rufus::Json.backend = :active_support
 
 #resolve sequel + meta_where conflict
 module MetaWhere
