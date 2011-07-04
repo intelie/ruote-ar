@@ -1,24 +1,8 @@
-# -*- coding: utf-8 -*-                
-require 'rubygems'
-require 'active_support/core_ext/module/aliasing'
-require 'active_record' unless defined?(ActiveRecord)
-# require 'mysql2' #0.2.7      
-# require 'active_record/connection_adapters/mysql2_adapter'
-require 'meta_where' unless defined?(MetaWhere)
-#require 'composite_primary_keys'
-
-require 'rufus/json'
+# -*- coding: utf-8 -*-
+           
+# require 'active_support/core_ext/module/aliasing' # TODO: why?
 require 'ruote/storage/base'
-Rufus::Json.backend = :active_support
-
-#resolve sequel + meta_where conflict
-module MetaWhere
-  class Column
-    def sql_literal(opts)
-      "#{@column}"
-    end
-  end
-end
+require 'ruote/storage/base'
 
 unless DateTime.instance_methods.include?(:usec)
   class DateTime
@@ -28,125 +12,60 @@ unless DateTime.instance_methods.include?(:usec)
   end
 end
 
-
-
 #Deixando mais robusto, para multi thread worker
-class << Thread
-  alias orig_new new
-  def new
-    orig_new do
-      begin
-        yield
-      ensure
-        ActiveRecord::Base.connection_pool.release_connection if ActiveRecord::Base.connection_pool
-      end
-    end
-  end
-end                
-
-# module ActiveRecord::ConnectionAdapters
-#   class Mysql2Adapter
-#       alias_method :execute_without_retry, :execute
-#       def execute(*args)
-#         retries = 3
-#         begin
-#           execute_without_retry(*args)
-#         rescue ActiveRecord::StatementInvalid
-#           if $!.message =~ /server has gone away/i || $!.message =~ /lost connection to mysql/i ||
-#               $!.message =~ /is still waiting for a result/i
-#             
-#             Rails.logger.warn "Server timed out, retrying. #{retries} left."
-#             reconnect!
-#             retry if (retries -= 1) > 0
-#           end
-#           raise
-#         end
+# class << Thread
+#   alias orig_new new
+#   def new
+#     orig_new do
+#       begin
+#         yield
+#       ensure
+#         ActiveRecord::Base.connection_pool.release_connection if ActiveRecord::Base.connection_pool
+#       end
 #     end
 #   end
-# end
+# end                
 
 module Ruote
-  module ActiveRecord
-    
-    class Document < ::ActiveRecord::Base
-      set_table_name :documents
-      #set_primary_key :typ, :ide, :rev
-      
-      
-      def self.before_fork
-        ::ActiveRecord::Base.clear_all_connections!
-      end
+  module Ar
 
-      def self.after_fork
-        ::ActiveRecord::Base.establish_connection
-      end
-      
-      def to_h
-        Rufus::Json.decode(doc)
-      end
-
-      def to_wi
-        Ruote::Workitem.from_json(doc)
-      end
-      
-      def <=>(other)
-        self.ide <=> other.ide
-      end
-    end
-    
-    
-    
     class Storage
+      
       include Ruote::StorageBase
-
 
       def initialize(options = {})
         @options = options
         put_configuration
       end      
       
-      
       def put_msg(action, options)
-
         # put_msg is a unique action, no need for all the complexity of put
-
         do_insert(prepare_msg_doc(action, options), 1)
-
         nil
       end
 
       def put_schedule(flavour, owner_fei, s, msg)
-
         # put_schedule is a unique action, no need for all the complexity of put
-
         doc = prepare_schedule_doc(flavour, owner_fei, s, msg)
-
         return nil unless doc
-
         do_insert(doc, 1)
-
         doc['_id']
       end
 
       def put(doc, opts={})
-
         nrev = doc['_rev'].to_i + 1
-        
         begin
-          
           if doc['_rev']                 
-              
             Document.transaction do
               current = Document.where(:typ => doc['type'], :ide => doc['_id'], :rev => doc['_rev']).lock(true).first
-              
               d = get(doc['type'], doc['_id'])             
-              
+
               return true unless d
               return d if d['_rev'] != doc['_rev']
               return d if current.nil?
                                                                        
-              json = Rufus::Json.encode(doc.merge('_rev' => nrev, 'put_at' => Ruote.now_to_utc_s))
-              
+              json = ActiveSupport::JSON.encode(doc.merge('_rev' => nrev, 'put_at' => Ruote.now_to_utc_s))
+
               # st = Document.execute_sql([
               #       'update documents set rev=rev+1, wfid=?, doc=?, participant_name=? where typ=? and ide=? and rev=?',
               #       extract_wfid(doc),
@@ -159,14 +78,9 @@ module Ruote
               #json = Document.connection.raw_connection.escape(json)
               #json = json.gsub(/\\/, '\&\&').gsub(/'/, "''")
               json = Document.connection.quote_string(json)
-              
-              
               sql = "update documents set rev=rev+1, wfid='#{extract_wfid(doc)}', doc='#{json}', participant_name='#{doc['participant_name']}' where typ='#{doc['type']}' and ide='#{doc['_id']}' and rev=#{doc['_rev']}"
               st = Document.connection.execute(sql)                                          
-                     
             end
-            
-            
           else             
             do_insert(doc, nrev)
           end
@@ -224,7 +138,7 @@ module Ruote
 
         docs = ds.all
         docs = select_last_revs(docs, opts[:descending])
-        docs = docs.collect { |d| Rufus::Json.decode(d[:doc]) }
+        docs = docs.collect { |d| ActiveSupport::JSON.decode(d[:doc]) }
 
         keys && keys.first.is_a?(Regexp) ?
         docs.select { |doc| keys.find { |key| key.match(doc['_id']) } } :
@@ -307,7 +221,7 @@ module Ruote
         raise NotImplementedError if type != 'workitems'
 
         lk = [ '%"', field, '":' ]
-        lk.push(Rufus::Json.encode(value)) if value
+        lk.push(ActiveSupport::JSON.encode(value)) if value
         lk.push('%')
 
         docs = Document.where(:typ => type, :doc.matches => lk.join)
@@ -338,7 +252,7 @@ module Ruote
         ds = ds.where(:participant_name => pname) if pname
 
         criteria.collect do |k, v|
-          ds = ds.where(:doc.matches => "%\"#{k}\":#{Rufus::Json.encode(v)}%")
+          ds = ds.where(:doc.matches => "%\"#{k}\":#{ActiveSupport::JSON.encode(v)}%")
         end
 
         ds = select_last_revs(ds.all)
@@ -365,7 +279,7 @@ module Ruote
                          :ide => doc['_id'],
                          :rev => rev,
                          :typ => doc['type'],
-                         :doc => Rufus::Json.encode(doc.merge(
+                         :doc => ActiveSupport::JSON.decode(doc.merge(
                                                               '_rev' => rev,
                                                               'put_at' => Ruote.now_to_utc_s)),
                          :wfid => extract_wfid(doc),
