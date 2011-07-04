@@ -31,6 +31,16 @@ end
 
 task :default => [ :test ]
 
+task :benchmark do
+  require 'benchmark'
+  $: << 'lib'
+  p $:
+  Benchmark.bm do |x|
+    x.report("require 'ar'") {
+      require 'ruote-ar'
+    }
+  end
+end
 
 #
 # gem
