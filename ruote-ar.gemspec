@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name              = 'ruote-ar'
-  s.version           = '0.0.2'
+  s.version           = '0.0.2.1'
   s.authors           = ["jiangchaofan"]
   s.summary           = 'ruote storage'
   s.description       = "ruote storage"
