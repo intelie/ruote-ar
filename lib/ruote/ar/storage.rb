@@ -9,6 +9,23 @@ require 'rufus/json'
 require 'ruote/storage/base'
 Rufus::Json.backend = :active_support
 
+
+require 'logger'
+ENV['RUOTE_STORAGE_DEBUG'] = 'log'
+logger = case ENV['RUOTE_STORAGE_DEBUG']
+  when 'log'
+    FileUtils.rm('ruote-debug.log') rescue nil
+    Logger.new('ruote-debug.log')
+  when 'stdout'
+    Logger.new($stdout)
+  else
+    nil
+end
+
+if logger
+  logger.level = Logger::DEBUG
+end
+
 #resolve sequel + meta_where conflict
 # module MetaWhere
 #   class Column
