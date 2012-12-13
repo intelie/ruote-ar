@@ -59,34 +59,13 @@ class << Thread
   end
 end                
 
-# module ActiveRecord::ConnectionAdapters
-#   class Mysql2Adapter
-#       alias_method :execute_without_retry, :execute
-#       def execute(*args)
-#         retries = 3
-#         begin
-#           execute_without_retry(*args)
-#         rescue ActiveRecord::StatementInvalid
-#           if $!.message =~ /server has gone away/i || $!.message =~ /lost connection to mysql/i ||
-#               $!.message =~ /is still waiting for a result/i
-#             
-#             Rails.logger.warn "Server timed out, retrying. #{retries} left."
-#             reconnect!
-#             retry if (retries -= 1) > 0
-#           end
-#           raise
-#         end
-#     end
-#   end
-# end
-
 
 
 module Ruote
   module ActiveRecord
     
-    class RuoteDoc < ::ActiveRecord::Base
-      self.table_name = 'ruote_docs'
+    class Document < ::ActiveRecord::Base
+      self.table_name = 'documents'
       
       def self.before_fork
         ::ActiveRecord::Base.clear_all_connections!
@@ -137,7 +116,7 @@ module Ruote
       # valid).
       #
       def reserve(doc)
-        RuoteDoc.where(
+        Document.where(
           :typ => doc['type'], :ide => doc['_id'], :rev => 1
         ).delete_all > 0
       end
@@ -179,7 +158,7 @@ module Ruote
             # failure
         end
 
-        RuoteDoc.where("typ = ? and ide = ? and rev < ?", 
+        Document.where("typ = ? and ide = ? and rev < ?", 
           doc['type'], doc['_id'], nrev
         ).delete_all
 
@@ -210,7 +189,7 @@ module Ruote
 
       def get_many(type, key=nil, opts={})
 
-        ds = RuoteDoc.where(:typ => type)
+        ds = Document.where(:typ => type)
 
         keys = key ? Array(key) : nil
         ds = ds.where(:wfid => keys) if keys && keys.first.is_a?(String)
@@ -244,13 +223,13 @@ module Ruote
       # Returns all the ids of the documents of a given type.
       #
       def ids(type)
-        RuoteDoc.where(:typ => type).select(:ide).collect { |d| d[:ide] }.uniq.sort
+        Document.where(:typ => type).select(:ide).collect { |d| d[:ide] }.uniq.sort
       end
 
       # Nukes all the documents in this storage.
       #
       def purge!
-        RuoteDoc.delete_all
+        Document.delete_all
       end
 
       # # Returns a string representation the current content of the storage for
@@ -266,14 +245,14 @@ module Ruote
       # all the idle connections in the pool (not the active ones).
       #
       def shutdown
-        #Ruote::ActiveRecord::RuoteDoc.before_fork
+        #Ruote::ActiveRecord::Document.before_fork
       end
 
       # Grrr... I should sort the mess between close and shutdown...
       # Tests vs production :-(
       #
       def close
-        #Ruote::ActiveRecord::RuoteDoc.before_fork
+        #Ruote::ActiveRecord::Document.before_fork
       end
 
       # Mainly used by ruote's test/unit/ut_17_storage.rb
@@ -286,9 +265,9 @@ module Ruote
       # Nukes a db type and reputs it (losing all the documents that were in it).
       #
       def purge_type!(type)
-        # puts "*** before purge type #{type},RuoteDoc.count:#{RuoteDoc.count}"
-        RuoteDoc.delete_all(:typ => type)
-        # puts "*** after purge type #{type},RuoteDoc.count:#{RuoteDoc.count}"
+        # puts "*** before purge type #{type},Document.count:#{Document.count}"
+        Document.delete_all(:typ => type)
+        # puts "*** after purge type #{type},Document.count:#{Document.count}"
       end
 
       # A provision made for workitems, allow to query them directly by
@@ -298,7 +277,7 @@ module Ruote
 
         raise NotImplementedError if type != 'workitems'
 
-        docs = RuoteDoc.where('typ = ? and participant_name = ?', type, participant_name)
+        docs = Document.where('typ = ? and participant_name = ?', type, participant_name)
         docs = docs.order('ide asc, rev desc').limit(opts[:limit]).offset(opts[:offset] || opts[:skip])
         
         return docs.size if opts[:count]
@@ -316,7 +295,7 @@ module Ruote
         lk.push(Rufus::Json.encode(value)) if value
         lk.push('%')
 
-        docs = RuoteDoc.where("typ = ? and doc like ?", type, lk.join)
+        docs = Document.where("typ = ? and doc like ?", type, lk.join)
         docs = docs.limit(opts[:limit]).offset(opts[:skip] || opts[:offset])
 
         return docs.size if opts[:count]
@@ -326,7 +305,7 @@ module Ruote
 
       def query_workitems(criteria)
 
-        ds = RuoteDoc.where(:typ => 'workitems')
+        ds = Document.where(:typ => 'workitems')
 
         count = criteria.delete('count')
         limit = criteria.delete('limit')
@@ -356,7 +335,7 @@ module Ruote
       protected
 
       def do_delete(doc)
-        RuoteDoc.delete_all(
+        Document.delete_all(
           :ide => doc['_id'], :typ => doc['type'], :rev => doc['_rev'].to_i
         )
       end
@@ -370,7 +349,7 @@ module Ruote
           {'_rev' => rev, 'put_at' => Ruote.now_to_utc_s}
         )
 
-        RuoteDoc.create!(
+        Document.create!(
           :ide              => (doc['_id'] || ''),
           :rev              => (rev || ''),
           :typ              => (doc['type'] || ''),
@@ -379,7 +358,7 @@ module Ruote
           :participant_name => (doc['participant_name'] || '')
         )
         
-        # RuoteDoc.create!(
+        # Document.create!(
         #   :ide              => :$ide,
         #   :rev              => :$rev,
         #   :typ              => :$typ,
@@ -396,7 +375,7 @@ module Ruote
       end
 
       def do_get(type, key)
-        RuoteDoc.where(:typ => type, :ide => key).order('rev desc').first
+        Document.where(:typ => type, :ide => key).order('rev desc').first
       end
 
       # Don't put configuration if it's already in
