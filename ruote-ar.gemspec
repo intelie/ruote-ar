@@ -1,10 +1,10 @@
 Gem::Specification.new do |s|
   s.name              = 'ruote-ar'
-  s.version           = '0.0.2.1'
-  s.authors           = ["jiangchaofan"]
+  s.version           = '0.0.2.2'
+  s.authors           = ["pedroteixeira", "jiangchaofan"]
   s.summary           = 'ruote storage'
   s.description       = "ruote storage"
-  s.email             = ['jiangchaofan@gmail.com']
+  s.email             = ['pedro@intelie.com.br', 'jiangchaofan@gmail.com']
   s.files             = Dir.glob('{lib}/**/*') 
   s.require_paths     = ["lib"]
 
