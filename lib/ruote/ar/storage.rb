@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-                
+# -*- coding: utf-8 -*-
 require 'rubygems'
 require 'active_support/core_ext/module/aliasing'
 require 'active_record' unless defined?(ActiveRecord)
@@ -11,7 +11,7 @@ Rufus::Json.backend = :active_support
 
 
 require 'logger'
-ENV['RUOTE_STORAGE_DEBUG'] = 'log'
+# ENV['RUOTE_STORAGE_DEBUG'] = 'log'
 logger = case ENV['RUOTE_STORAGE_DEBUG']
   when 'log'
     FileUtils.rm('ruote-debug.log') rescue nil
@@ -57,16 +57,16 @@ class << Thread
       end
     end
   end
-end                
+end
 
 
 
 module Ruote
   module ActiveRecord
-    
+
     class Document < ::ActiveRecord::Base
       self.table_name = 'documents'
-      
+
       def self.before_fork
         ::ActiveRecord::Base.clear_all_connections!
       end
@@ -74,7 +74,7 @@ module Ruote
       def self.after_fork
         ::ActiveRecord::Base.establish_connection
       end
-      
+
       def to_h
         return nil if doc.nil?
         doc_read = doc.respond_to?(:read) ? doc.read : doc
@@ -84,24 +84,24 @@ module Ruote
       def to_wi
         Ruote::Workitem.from_json(doc)
       end
-      
+
       def <=>(other)
         self.ide <=> other.ide
       end
     end
-    
+
     class Storage
       include Ruote::StorageBase
 
       def initialize(options = {})
-        
-        #options['ar_table_name'] || 
+
+        #options['ar_table_name'] ||
         @table = ('ruote_docs').to_sym
 
         replace_engine_configuration(options)
-      end      
-      
-      
+      end
+
+
       def put_msg(action, options)
 
         # put_msg is a unique action, no need for all the complexity of put
@@ -120,7 +120,7 @@ module Ruote
           :typ => doc['type'], :ide => doc['_id'], :rev => 1
         ).delete_all > 0
       end
-  
+
       def put_schedule(flavour, owner_fei, s, msg)
 
         # put_schedule is a unique action, no need for all the complexity of put
@@ -158,7 +158,7 @@ module Ruote
             # failure
         end
 
-        Document.where("typ = ? and ide = ? and rev < ?", 
+        Document.where("typ = ? and ide = ? and rev < ?",
           doc['type'], doc['_id'], nrev
         ).delete_all
 
@@ -195,11 +195,11 @@ module Ruote
         ds = ds.where(:wfid => keys) if keys && keys.first.is_a?(String)
 
         return ds.all.size if opts[:count]
-        
+
         if opts[:descending].is_a?(Array) && opts[:descending].first.class != String
           opts[:descending] = opts[:descending].collect {|s| s.inspect.gsub(':','').gsub('.', ' ')}
         end
-        
+
         ds = ds.order(
                       *(opts[:descending] ? [ 'ide desc', 'rev desc' ] : [ 'ide asc', 'rev asc' ])
                       )
@@ -210,8 +210,8 @@ module Ruote
         docs = select_last_revs(docs)
         docs = docs.collect { |d| Rufus::Json.decode(d[:doc]) }
 
-        if keys && keys.first.is_a?(Regexp) 
-          docs.select { |doc| keys.find { |key| key.match(doc['_id']) } } 
+        if keys && keys.first.is_a?(Regexp)
+          docs.select { |doc| keys.find { |key| key.match(doc['_id']) } }
         else
           docs
         end
@@ -236,7 +236,7 @@ module Ruote
       # # a given type.
       # #
       # def dump(type)
-      # 
+      #
       #   "=== #{type} ===\n" +
       #     get_many(type).map { |h| "  #{h['_id']} => #{h.inspect}" }.join("\n")
       # end
@@ -279,9 +279,9 @@ module Ruote
 
         docs = Document.where('typ = ? and participant_name = ?', type, participant_name)
         docs = docs.order('ide asc, rev desc').limit(opts[:limit]).offset(opts[:offset] || opts[:skip])
-        
+
         return docs.size if opts[:count]
-        
+
         select_last_revs(docs).collect(&:to_wi)
       end
 
@@ -300,7 +300,7 @@ module Ruote
 
         return docs.size if opts[:count]
         select_last_revs(docs).collect(&:to_wi)
-        
+
       end
 
       def query_workitems(criteria)
@@ -327,11 +327,11 @@ module Ruote
 
         return ds.size if count
         select_last_revs(ds).collect(&:to_wi)
-       
+
       end
 
-      
-      
+
+
       protected
 
       def do_delete(doc)
@@ -341,8 +341,8 @@ module Ruote
       end
 
       def do_insert(doc, rev, update_rev=false)
-        
-        
+
+
         # doc.merge!({'_rev' => rev, 'put_at' => Ruote.now_to_utc_s}) if update_rev
         doc = doc.send(
           update_rev ? :merge! : :merge,
@@ -357,7 +357,7 @@ module Ruote
           :wfid             => (extract_wfid(doc) || ''),
           :participant_name => (doc['participant_name'] || '')
         )
-        
+
         # Document.create!(
         #   :ide              => :$ide,
         #   :rev              => :$rev,
@@ -366,7 +366,7 @@ module Ruote
         #   :wfid             => :$wfid,
         #   :participant_name => :$participant_name
         # )
-        
+
       end
 
       def extract_wfid(doc)
@@ -383,9 +383,9 @@ module Ruote
       # (avoid storages from trashing configuration...)
       #
       # def put_configuration
-      # 
+      #
       #   return if get('configurations', 'engine')
-      # 
+      #
       #   conf = { '_id' => 'engine', 'type' => 'configurations' }.merge(@options)
       #   put(conf)
       # end
@@ -400,8 +400,8 @@ module Ruote
           a << doc if a.last.nil? || doc[:ide] != a.last[:ide]
         }
       end
-      
+
     end
-    
+
   end
 end
