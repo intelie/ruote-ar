@@ -1,26 +1,24 @@
-#
 # testing ruote-ar
-#
-# Thu Feb 10 11:14:56 JST 2011
-#
 
 require 'rufus-json/automatic'
 require 'ruote-ar'
+require 'activerecord-jdbcmysql-adapter'
 
+# Database credentials
+unless ActiveRecord::Base.connected?
+  ActiveRecord::Base.establish_connection(
+    adapter: 'mysql2',
+    host: 'localhost',
+    database: 'ruote_ar_test',
+    encoding: 'utf8',
+    username: 'root',
+    timeout: 100,
+    pool: 4 # main, worker thread
+  )
+  # force connection
+  ActiveRecord::Base.connection
+end
 
-
-# eg.
-# opts = {
-#  :adapter => 'mysql2',
-#  :database => 'db',
-#  :username => 'user', 
-#  :password => 'passwd',                     
-#  :pool => 10, #needed for eft_18
-#  :host => 'localhost'
-# }
 def new_storage(opts)
-  # Database credentials
-  ::ActiveRecord::Base.establish_connection(opts)
-  
-  ::Ruote::ActiveRecord::Storage.new(opts)  
+  Ruote::ActiveRecord::Storage.new(opts)
 end

@@ -9,11 +9,8 @@ ruote-ar/
 
 cd the ruote directory and run the test
 
-"ruby test/functional/storage.rb -- --ar"
+create database
+mysql -u root < setup.sql
 
-2: table
-
-the table of ruote-ar is set to 'ruote_docs', it may will be changed as an option like ruote-sequel, todo.
-and there is no create or check existent of the table, make sure the table is exist first.
-
-table definition refer to https://github.com/jmettraux/ruote-sequel/blob/master/lib/ruote/sequel/storage.rb?#L46-L59
+run tests
+RUOTE_STORAGE=ar ruby test/functional/storage.rb
