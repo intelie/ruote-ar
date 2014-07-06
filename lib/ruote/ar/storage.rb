@@ -345,11 +345,13 @@ module Ruote
 
         CACHED_TYPES.each { |t| cache[t] = {} }
 
-        connection.select_all(table.where(table[:typ].in(CACHED_TYPES)).
-                              project(table[:ide], table[:typ], table[:doc]).
-                              order(table[:ide].asc, table[:rev].desc)).each do |d|
+        ds = table.where(table[:typ].in(CACHED_TYPES)).
+          project(table[:ide], table[:typ], table[:doc]).
+          order(table[:ide].asc, table[:rev].desc)
+
+        connection.select_all(ds).each do |d|
           (cache[d['typ']] ||= {})[d['ide']] ||= decode_doc(d)
-                              end
+        end
 
         cache['variables']['trackers'] ||=
           { '_id' => 'trackers', 'type' => 'variables', 'trackers' => {} }
