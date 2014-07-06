@@ -170,11 +170,7 @@ module Ruote
       # Nukes all the documents in this storage.
       #
       def purge!
-        # TODO: only test
-        dm = Arel::DeleteManager.new Arel::Table.engine
-        dm.from table
-        connection.delete(dm)
-        CACHED_TYPES.each { |t| cache[t] = {} }
+        # just for test
       end
 
       # Returns connection to pool
@@ -199,11 +195,7 @@ module Ruote
       # Nukes a db type and reputs it (losing all the documents that were in it).
       #
       def purge_type!(type)
-        dm = Arel::DeleteManager.new Arel::Table.engine
-        dm.from table
-        dm.where table[:typ].eq(type)
-        connection.delete(dm)
-        (CACHED_TYPES & [type]).each { |t| cache[t] = {} }
+        # just for test
       end
 
       # A provision made for workitems, allow to query them directly by

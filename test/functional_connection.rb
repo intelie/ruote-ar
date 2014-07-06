@@ -15,10 +15,30 @@ unless ActiveRecord::Base.connected?
     timeout: 100,
     pool: 4 # main, worker thread
   )
-  # force connection
-  ActiveRecord::Base.connection
 end
 
 def new_storage(opts)
   Ruote::ActiveRecord::Storage.new(opts)
+end
+
+# implement purge! and purge_type! just for test
+module Ruote
+  module ActiveRecord
+    class Storage
+      def purge_type!(type)
+        dm = Arel::DeleteManager.new Arel::Table.engine
+        dm.from table
+        dm.where table[:typ].eq(type)
+        connection.delete(dm)
+        (CACHED_TYPES & [type]).each { |t| cache[t] = {} }
+      end
+
+      def purge!
+        dm = Arel::DeleteManager.new Arel::Table.engine
+        dm.from table
+        connection.delete(dm)
+        CACHED_TYPES.each { |t| cache[t] = {} }
+      end
+    end
+  end
 end
