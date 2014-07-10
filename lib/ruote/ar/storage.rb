@@ -13,6 +13,8 @@ module Ruote
       def initialize(options = {})
 
         @table_name = options['table_name'] || ('documents').to_sym
+        @ip = Ruote.local_ip
+        @worker = [current_worker_name, @ip.gsub(/\./, '_'), $$.to_s].join('/')
 
         replace_engine_configuration(options)
       end
@@ -34,7 +36,7 @@ module Ruote
         um.table table
         um.where table[:typ].eq(doc['type'].to_s).and(table[:ide].eq(doc['_id'].to_s).and(table[:rev].eq(1).and(table[:worker].eq(nil))))
         um.set [
-          [table[:worker], worker]
+          [table[:worker], @worker]
         ]
         connection.update(um.to_sql) > 0
       end
@@ -44,7 +46,7 @@ module Ruote
       def done(doc)
         dm = Arel::DeleteManager.new Arel::Table.engine
         dm.from table
-        dm.where table[:typ].eq(doc['type']).and(table[:ide].eq(doc['_id']).and(table[:rev].eq(1).and(table[:worker].eq(worker))))
+        dm.where table[:typ].eq(doc['type']).and(table[:ide].eq(doc['_id']).and(table[:rev].eq(1).and(table[:worker].eq(@worker))))
         connection.delete(dm)
       end
 
@@ -62,8 +64,6 @@ module Ruote
       end
 
       def put(doc, opts={})
-
-        cache_clear(doc)
 
         if doc['_rev']
 
@@ -96,7 +96,7 @@ module Ruote
       end
 
       def get(type, key)
-        cache_get(type, key) || do_get(type, key)
+        do_get(type, key)
       end
 
       def delete(doc)
@@ -104,8 +104,7 @@ module Ruote
        
         raise ArgumentError.new('no _rev for doc') unless doc['_rev']
 
-        cache_clear(doc)
-          # usually not necessary, adding it not to forget it later on        
+        # usually not necessary, adding it not to forget it later on        
       
         dm = Arel::DeleteManager.new Arel::Table.engine
         dm.from table
@@ -120,11 +119,6 @@ module Ruote
       end
 
       def get_many(type, key=nil, opts={})
-
-        ### 
-
-        cached = cache_get_many(type, key, opts)
-        return cached if cached
 
         ds = table[:typ].eq(type)
 
@@ -257,11 +251,6 @@ module Ruote
         select_last_revs(connection.select_all(ds.project('*'))).collect { |d| Ruote::Workitem.from_json(d['doc']) } 
       end
       
-      def begin_step
-
-        prepare_cache
-      end 
-
       protected
 
       def decode_doc(doc)
@@ -328,80 +317,6 @@ module Ruote
         }
       end
 
-      #--
-      # worker step cache
-      #
-      # in order to cut down the number of selects, do one select with
-      # all the information the worker needs for one step of work
-      #++
-
-
-      CACHED_TYPES = %w[ msgs schedules configurations variables ]
-
-      # One select to grab in all the info necessary for a worker step
-      # (expressions excepted).
-      #
-      def prepare_cache
-
-        CACHED_TYPES.each { |t| cache[t] = {} }
-
-        ds = table.where(table[:typ].in(CACHED_TYPES)).
-          project(table[:ide], table[:typ], table[:doc]).
-          order(table[:ide].asc, table[:rev].desc)
-
-        connection.select_all(ds).each do |d|
-          (cache[d['typ']] ||= {})[d['ide']] ||= decode_doc(d)
-        end
-
-        cache['variables']['trackers'] ||=
-          { '_id' => 'trackers', 'type' => 'variables', 'trackers' => {} }
-      end
-
-    # Ask the cache for a doc. Returns nil if it's not cached.
-    #
-    def cache_get(type, key)
-
-      (cache[type] || {})[key]
-    end
-
-    # Ask the cache for a set of documents. Returns nil if it's not cached
-    # or caching is not OK.
-    #
-    def cache_get_many(type, keys, options)
-
-      if !options[:batch] && CACHED_TYPES.include?(type) && cache[type]
-        cache[type].values
-      else
-        nil
-      end
-    end
-
-    # Removes a document from the cache.
-    #
-    def cache_clear(doc)
-
-      (cache[doc['type']] || {}).delete(doc['_id'])
-    end
-
-    # Returns the cache for the given thread. Returns {} if there is no
-    # cache available.
-    #
-    def cache
-
-      worker = Thread.current['ruote_worker']
-
-      return {} unless worker
-
-      (Thread.current["cache_#{worker.name}"] ||= {})
-    end
-
-
-      # def do_delete(doc)
-      #   Document.delete_all(
-      #     :ide => doc['_id'], :typ => doc['type'], :rev => doc['_rev'].to_i
-      #   )
-      # end
-
       private
       def table
         @table ||= ::Arel::Table.new @table_name
@@ -411,12 +326,13 @@ module Ruote
         ::ActiveRecord::Base.connection
       end
 
-      def worker
+      def current_worker_name
         worker = Thread.current['ruote_worker']
         if worker
           worker.name
         end || 'worker'
       end
+
     end
   end
 end

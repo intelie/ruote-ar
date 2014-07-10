@@ -30,14 +30,12 @@ module Ruote
         dm.from table
         dm.where table[:typ].eq(type)
         connection.delete(dm)
-        (CACHED_TYPES & [type]).each { |t| cache[t] = {} }
       end
 
       def purge!
         dm = Arel::DeleteManager.new Arel::Table.engine
         dm.from table
         connection.delete(dm)
-        CACHED_TYPES.each { |t| cache[t] = {} }
       end
     end
   end
