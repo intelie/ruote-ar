@@ -14,6 +14,8 @@ module Ruote
 
         @table_name = options['table_name'] || ('documents').to_sym
         @ip = Ruote.local_ip
+        @last_time = Time.at(0.0).utc
+
         @worker = [current_worker_name, @ip.gsub(/\./, '_'), $$.to_s].join('/')
 
         replace_engine_configuration(options)
@@ -28,18 +30,49 @@ module Ruote
         nil
       end
 
+      def begin_step
+        
+        # release uncommited releases
+        connection.execute("ROLLBACK")
+
+        now = Time.now.utc
+        delta = now - @last_time
+
+        # just try release locked documents each 20 seconds
+        return if delta < 30
+
+        @last_time = now
+
+        # release all locked msgs
+        um = Arel::UpdateManager.new Arel::Table.engine
+        um.table table
+        um.where table[:typ].eq('msgs').and(table[:worker].eq(@worker))
+        um.set [
+          [table[:worker], nil]
+        ]
+      end
+
       # Used to reserve 'msgs' and 'schedules'. Simply update and
       # return true if the update was affected more than one line.
       #
       def reserve(doc)
         um = Arel::UpdateManager.new Arel::Table.engine
         um.table table
-        um.where table[:typ].eq(doc['type'].to_s).and(table[:ide].eq(doc['_id'].to_s).and(table[:rev].eq(1).and(table[:worker].eq(nil))))
+        um.where table[:typ].eq(doc['type'].to_s).
+          and(table[:ide].eq(doc['_id'].to_s).
+              and(table[:rev].eq(1).
+                  and(table[:worker].eq(nil))))
         um.set [
           [table[:worker], @worker]
         ]
-        connection.update(um.to_sql) > 0
+        if connection.update(um.to_sql) > 0
+          begin_transaction
+          true
+        else
+          false
+        end
       end
+
 
       # removing doc after success (or fail) success.
       # It's important to not leave any message.
@@ -48,6 +81,8 @@ module Ruote
         dm.from table
         dm.where table[:typ].eq(doc['type']).and(table[:ide].eq(doc['_id']).and(table[:rev].eq(1).and(table[:worker].eq(@worker))))
         connection.delete(dm)
+
+        commit
       end
 
       def put_schedule(flavour, owner_fei, s, msg)
@@ -330,7 +365,15 @@ module Ruote
         worker = Thread.current['ruote_worker']
         if worker
           worker.name
-        end || 'worker'
+        end || "worker"
+      end
+      
+      def begin_transaction
+        connection.execute("BEGIN")
+      end
+
+      def commit
+        connection.execute("COMMIT")
       end
 
     end
