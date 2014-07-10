@@ -50,6 +50,7 @@ module Ruote
         um.set [
           [table[:worker], nil]
         ]
+        connection.update(um.to_sql) 
       end
 
       # Used to reserve 'msgs' and 'schedules'. Simply update and
