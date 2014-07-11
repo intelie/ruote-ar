@@ -32,10 +32,6 @@ module Ruote
         connection.delete(dm)
       end
 
-      # remove on tests
-      def commit; end
-      def begin_transaction; end
-
       def purge!
         dm = Arel::DeleteManager.new Arel::Table.engine
         dm.from table

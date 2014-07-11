@@ -32,9 +32,6 @@ module Ruote
 
       def begin_step
         
-        # release uncommited releases
-        connection.execute("ROLLBACK")
-
         now = Time.now.utc
         delta = now - @last_time
 
@@ -66,12 +63,7 @@ module Ruote
         um.set [
           [table[:worker], @worker]
         ]
-        if connection.update(um.to_sql) > 0
-          begin_transaction
-          true
-        else
-          false
-        end
+        return connection.update(um.to_sql) > 0
       end
 
 
@@ -82,8 +74,6 @@ module Ruote
         dm.from table
         dm.where table[:typ].eq(doc['type']).and(table[:ide].eq(doc['_id']).and(table[:rev].eq(1).and(table[:worker].eq(@worker))))
         connection.delete(dm)
-
-        commit
       end
 
       def put_schedule(flavour, owner_fei, s, msg)
@@ -369,14 +359,6 @@ module Ruote
         end || "worker"
       end
       
-      def begin_transaction
-        connection.execute("BEGIN")
-      end
-
-      def commit
-        connection.execute("COMMIT")
-      end
-
     end
   end
 end
