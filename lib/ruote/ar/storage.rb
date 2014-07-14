@@ -16,7 +16,7 @@ module Ruote
         @ip = Ruote.local_ip
         @last_time = Time.at(0.0).utc
 
-        @worker = [current_worker_name, @ip.gsub(/\./, '_'), $$.to_s].join('/')
+        @worker = [current_worker_name, @ip.gsub(/\./, '_')].join('/')
 
         replace_engine_configuration(options)
       end
