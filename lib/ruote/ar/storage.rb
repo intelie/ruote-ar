@@ -18,7 +18,7 @@ module Ruote
 
         @worker = [current_worker_name, @ip.gsub(/\./, '_')].join('/')
 
-        replace_engine_configuration(options)
+        replace_engine_configuration(options) unless options.empty?
       end
 
 
