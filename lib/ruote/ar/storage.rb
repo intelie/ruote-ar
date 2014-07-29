@@ -130,6 +130,7 @@ module Ruote
 
         keys = key ? Array(key) : nil
         ds = ds.and(table[:wfid].in(keys)) if keys && keys.first.is_a?(String)
+        ds = ds.and(table[:worker].eq(nil)) if type == 'msgs'
         
         ds = table.where(ds)
 
