@@ -34,10 +34,6 @@ module Ruote
       # return true if the update was affected more than one line.
       #
       def reserve(doc)
-        # doc is already this worker
-        return true if !doc['_worker'].nil? && doc['_worker'] == @worker
-
-        # try reserve this document
         um = Arel::UpdateManager.new Arel::Table.engine
         um.table table
         um.where table[:typ].eq(doc['type'].to_s).
@@ -134,8 +130,8 @@ module Ruote
 
         keys = key ? Array(key) : nil
         ds = ds.and(table[:wfid].in(keys)) if keys && keys.first.is_a?(String)
-        ds = ds.and(table[:worker].eq(nil).or(table[:worker].eq(@worker))) if type == 'msgs'
-
+        ds = ds.and(table[:worker].eq(nil)) if type == 'msgs'
+        
         ds = table.where(ds)
 
         return connection.select_value(ds.project(table[:wfid].count)) if opts[:count]
@@ -154,9 +150,7 @@ module Ruote
 
         docs = connection.select_all(ds.project('*'))
         docs = select_last_revs(docs)
-
-        # TIP: append worker info to doc to use in reserve
-        docs = docs.collect { |d| Rufus::Json.decode(d['doc']).merge({'_worker' => d['worker']}) }
+        docs = docs.collect { |d| Rufus::Json.decode(d['doc']) }
 
         if keys && keys.first.is_a?(Regexp)
           docs.select { |doc| keys.find { |k| k.match(doc['_id']) } }
