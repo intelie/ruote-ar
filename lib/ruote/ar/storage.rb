@@ -30,26 +30,6 @@ module Ruote
         nil
       end
 
-      def begin_step
-        
-        now = Time.now.utc
-        delta = now - @last_time
-
-        # just try release locked documents each 20 seconds
-        return if delta < 30
-
-        @last_time = now
-
-        # release all locked msgs
-        um = Arel::UpdateManager.new Arel::Table.engine
-        um.table table
-        um.where table[:typ].eq('msgs').and(table[:worker].eq(@worker))
-        um.set [
-          [table[:worker], nil]
-        ]
-        connection.update(um.to_sql) 
-      end
-
       # Used to reserve 'msgs' and 'schedules'. Simply update and
       # return true if the update was affected more than one line.
       #
